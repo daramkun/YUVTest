@@ -101,7 +101,7 @@ NV12: {nv12}, NV12 Deflated: {nv12d}" );
 		{
 			InitializeComponent ();
 
-			original = new Bitmap ( Resources.bluemisty_90 );
+			original = new Bitmap ( Resources.lenna1 );
 			yuv444 = ColorspaceConverter.ConvertToYUV444 ( original );
 			yuv422 = ColorspaceConverter.ConvertToYUV422 ( original );
 			nv12 = ColorspaceConverter.ConvertToNV12 ( original );

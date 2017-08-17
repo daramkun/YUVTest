@@ -95,5 +95,11 @@
   <ItemGroup>
     <None Include="Resources\749px-Vector_Video_Standards2_svg.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\battlefield-1.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\82gUd015l9njqqkn5emz_5wqb3c.jpg" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

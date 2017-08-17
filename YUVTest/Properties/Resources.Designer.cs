@@ -73,6 +73,26 @@ namespace YUVTest.Properties {
         /// <summary>
         ///   System.Drawing.Bitmap 형식의 지역화된 리소스를 찾습니다.
         /// </summary>
+        internal static System.Drawing.Bitmap _82gUd015l9njqqkn5emz_5wqb3c {
+            get {
+                object obj = ResourceManager.GetObject("_82gUd015l9njqqkn5emz_5wqb3c", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   System.Drawing.Bitmap 형식의 지역화된 리소스를 찾습니다.
+        /// </summary>
+        internal static System.Drawing.Bitmap battlefield_1 {
+            get {
+                object obj = ResourceManager.GetObject("battlefield_1", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   System.Drawing.Bitmap 형식의 지역화된 리소스를 찾습니다.
+        /// </summary>
         internal static System.Drawing.Bitmap bluemisty_90 {
             get {
                 object obj = ResourceManager.GetObject("bluemisty_90", resourceCulture);

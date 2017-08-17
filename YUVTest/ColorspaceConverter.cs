@@ -72,25 +72,41 @@ namespace YUVTest
 		#region Utilities
 		public static readonly float [,] QuantizeTableForY = new float [ 8, 8 ]
 		{
-			{ 16, 11, 10, 16, 24, 40, 51, 61 },
+			/*{ 16, 11, 10, 16, 24, 40, 51, 61 },
 			{ 12, 12, 14, 19, 26, 58, 60, 55 },
 			{ 14, 13, 16, 24, 40, 57, 69, 56 },
 			{ 14, 17, 22, 29, 51, 87, 80, 62 },
 			{ 18, 22, 37, 56, 68, 109, 103, 77 },
 			{ 24, 35, 55, 64, 81, 104, 113, 92 },
 			{ 49, 64, 78, 87, 103, 121, 120, 101 },
-			{ 72, 92, 95, 98, 112, 100, 103, 99 },
+			{ 72, 92, 95, 98, 112, 100, 103, 99 },*/
+			{ 1, 1, 1, 1, 2, 3, 4, 5 },
+			{ 1, 1, 1, 2, 2, 5, 5, 4 },
+			{ 1, 1, 1, 2, 3, 5, 6, 4 },
+			{ 1, 1, 2, 2, 4, 7, 6, 5 },
+			{ 1, 2, 3, 4, 5, 9, 8, 6 },
+			{ 2, 3, 4, 5, 6, 8, 9, 7 },
+			{ 4, 5, 6, 7, 8, 10, 10, 8 },
+			{ 6, 7, 8, 8, 9, 8, 8, 8 },
 		};
 		public static readonly float [,] QuantizeTableForCbCr = new float [ 8, 8 ]
 		{
-			{ 17, 18, 24, 47, 99, 99, 99, 99 },
+			/*{ 17, 18, 24, 47, 99, 99, 99, 99 },
 			{ 18, 21, 26, 66, 99, 99, 99, 99 },
 			{ 24, 26, 56, 99, 99, 99, 99, 99 },
 			{ 47, 66, 99, 99, 99, 99, 99, 99 },
 			{ 99, 99, 99, 99, 99, 99, 99, 99 },
 			{ 99, 99, 99, 99, 99, 99, 99, 99 },
 			{ 99, 99, 99, 99, 99, 99, 99, 99 },
-			{ 99, 99, 99, 99, 99, 99, 99, 99 },
+			{ 99, 99, 99, 99, 99, 99, 99, 99 },*/
+			{ 1, 1, 2, 4, 8, 8, 8, 8 },
+			{ 1, 2, 2, 5, 8, 8, 8, 8 },
+			{ 2, 2, 4, 8, 8, 8, 8, 8 },
+			{ 4, 5, 8, 8, 8, 8, 8, 8 },
+			{ 8, 8, 8, 8, 8, 8, 8, 8 },
+			{ 8, 8, 8, 8, 8, 8, 8, 8 },
+			{ 8, 8, 8, 8, 8, 8, 8, 8 },
+			{ 8, 8, 8, 8, 8, 8, 8, 8 },
 		};
 
 		private static readonly float [,] CosineTable = new float [ 8, 8 ];
@@ -101,8 +117,8 @@ namespace YUVTest
 				for ( int x = 0; x < 8; ++x )
 					CosineTable [ x, y ] = ( float ) Math.Cos ( Math.PI * x * ( 2.0 * y + 1 ) * inv16 );
 
-			MultiplyScalar ( QuantizeTableForY, 0.25f );
-			MultiplyScalar ( QuantizeTableForCbCr, 0.25f );
+			//MultiplyScalar ( QuantizeTableForY, 0.25f );
+			//MultiplyScalar ( QuantizeTableForCbCr, 0.25f );
 		}
 		public static void RGB2YUV ( out byte y, out byte u, out byte v, byte r, byte g, byte b )
 		{
