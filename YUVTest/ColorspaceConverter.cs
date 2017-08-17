@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -9,9 +11,88 @@ using System.Threading.Tasks;
 
 namespace YUVTest
 {
+	[StructLayout ( LayoutKind.Sequential )]
+	public struct RGB
+	{
+		public byte R;
+		public byte G;
+		public byte B;
+
+		public RGB ( float r, float g, float b )
+		{
+			R = ( byte ) Math.Max ( Math.Min ( r, 255 ), 0 );
+			G = ( byte ) Math.Max ( Math.Min ( g, 255 ), 0 );
+			B = ( byte ) Math.Max ( Math.Min ( b, 255 ), 0 );
+		}
+	}
+
+	[StructLayout ( LayoutKind.Sequential )]
+	public struct YCbCr444
+	{
+		public byte Y;
+		public byte Cb;
+		public byte Cr;
+
+		public YCbCr444 ( float y, float u, float v )
+		{
+			Y = ( byte ) Math.Max ( Math.Min ( y, 255 ), 0 );
+			Cb = ( byte ) Math.Max ( Math.Min ( u, 255 ), 0 );
+			Cr = ( byte ) Math.Max ( Math.Min ( v, 255 ), 0 );
+		}
+	}
+
+	[StructLayout ( LayoutKind.Sequential )]
+	public struct YCbCr422
+	{
+		public byte Y, Cb, Cr, Y2;
+
+		public YCbCr422 ( float y, float u, float v, float y2 )
+		{
+			Y = ( byte ) Math.Max ( Math.Min ( y, 255 ), 0 );
+			Cb = ( byte ) Math.Max ( Math.Min ( u, 255 ), 0 );
+			Cr = ( byte ) Math.Max ( Math.Min ( v, 255 ), 0 );
+			Y2 = ( byte ) Math.Max ( Math.Min ( y2, 255 ), 0 );
+		}
+	}
+
+	[StructLayout ( LayoutKind.Sequential )]
+	public struct CbCr
+	{
+		public byte Cb, Cr;
+
+		public CbCr ( float u, float v )
+		{
+			Cb = ( byte ) Math.Max ( Math.Min ( u, 255 ), 0 );
+			Cr = ( byte ) Math.Max ( Math.Min ( v, 255 ), 0 );
+		}
+	}
+
 	public static class ColorspaceConverter
 	{
 		#region Utilities
+		public static readonly float [,] QuantizeTableForY = new float [ 8, 8 ]
+		{
+			{ 16, 11, 10, 16, 24, 40, 51, 61 },
+			{ 12, 12, 14, 19, 26, 58, 60, 55 },
+			{ 14, 13, 16, 24, 40, 57, 69, 56 },
+			{ 14, 17, 22, 29, 51, 87, 80, 62 },
+			{ 18, 22, 37, 56, 68, 109, 103, 77 },
+			{ 24, 35, 55, 64, 81, 104, 113, 92 },
+			{ 49, 64, 78, 87, 103, 121, 120, 101 },
+			{ 72, 92, 95, 98, 112, 100, 103, 99 },
+		};
+		public static readonly float [,] QuantizeTableForCbCr = new float [ 8, 8 ]
+		{
+			{ 17, 18, 24, 47, 99, 99, 99, 99 },
+			{ 18, 21, 26, 66, 99, 99, 99, 99 },
+			{ 24, 26, 56, 99, 99, 99, 99, 99 },
+			{ 47, 66, 99, 99, 99, 99, 99, 99 },
+			{ 99, 99, 99, 99, 99, 99, 99, 99 },
+			{ 99, 99, 99, 99, 99, 99, 99, 99 },
+			{ 99, 99, 99, 99, 99, 99, 99, 99 },
+			{ 99, 99, 99, 99, 99, 99, 99, 99 },
+		};
+
 		private static readonly float [,] CosineTable = new float [ 8, 8 ];
 		static ColorspaceConverter ()
 		{
@@ -19,33 +100,36 @@ namespace YUVTest
 			for ( int y = 0; y < 8; ++y )
 				for ( int x = 0; x < 8; ++x )
 					CosineTable [ x, y ] = ( float ) Math.Cos ( Math.PI * x * ( 2.0 * y + 1 ) * inv16 );
+
+			MultiplyScalar ( QuantizeTableForY, 0.25f );
+			MultiplyScalar ( QuantizeTableForCbCr, 0.25f );
 		}
-		private static void RGB2YUV ( out byte y, out byte u, out byte v, byte r, byte g, byte b )
+		public static void RGB2YUV ( out byte y, out byte u, out byte v, byte r, byte g, byte b )
 		{
 			y = ( byte ) Math.Max ( Math.Min ( ( 0.257 * r ) + ( 0.504 * g ) + ( 0.098 * b ) + 16, 255 ), 0 );
 			u = ( byte ) Math.Max ( Math.Min ( -( 0.148 * r ) - ( 0.291 * g ) + ( 0.439 * b ) + 128, 255 ), 0 );
 			v = ( byte ) Math.Max ( Math.Min ( ( 0.439 * r ) - ( 0.368 * g ) - ( 0.071 * b ) + 128, 255 ), 0 );
 		}
-		private static void YUV2RGB ( out byte r, out byte g, out byte b, byte y, byte u, byte v )
+		public static void YUV2RGB ( out byte r, out byte g, out byte b, byte y, byte u, byte v )
 		{
 			r = ( byte ) Math.Max ( Math.Min ( 1.164 * ( y - 16 ) + 1.596 * ( v - 128 ), 255 ), 0 );
 			g = ( byte ) Math.Max ( Math.Min ( 1.164 * ( y - 16 ) - 0.813 * ( v - 128 ) - 0.392 * ( u - 128 ), 255 ), 0 );
 			b = ( byte ) Math.Max ( Math.Min ( 1.164 * ( y - 16 ) + 2.018 * ( u - 128 ), 255 ), 0 );
 		}
-		private static void ReadPixels ( out byte r, out byte g, out byte b, IntPtr ptr, int offset )
+		public static void ReadPixels ( out byte r, out byte g, out byte b, IntPtr ptr, int offset )
 		{
 			r = Marshal.ReadByte ( ptr, offset + 0 );
 			g = Marshal.ReadByte ( ptr, offset + 1 );
 			b = Marshal.ReadByte ( ptr, offset + 2 );
 		}
-		private static void WritePixels ( IntPtr ptr, int offset, byte r, byte g, byte b )
+		public static void WritePixels ( IntPtr ptr, int offset, byte r, byte g, byte b )
 		{
 			Marshal.WriteByte ( ptr, offset + 0, r );
 			Marshal.WriteByte ( ptr, offset + 1, g );
 			Marshal.WriteByte ( ptr, offset + 2, b );
 			Marshal.WriteByte ( ptr, offset + 3, 255 );
 		}
-		private static void GetColours ( out float [,] ys, out float [,] us, out float [,] vs, Bitmap original )
+		public static void GetColours ( out float [,] ys, out float [,] us, out float [,] vs, Bitmap original )
 		{
 			var locked = original.LockBits ( new Rectangle ( 0, 0, original.Width, original.Height ), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb );
 			ys = new float [ original.Width, original.Height ];
@@ -64,7 +148,7 @@ namespace YUVTest
 			}
 			original.UnlockBits ( locked );
 		}
-		private static void CopyTo ( float [,] target, float [,] original, int tx, int ty )
+		public static void CopyTo ( float [,] target, float [,] original, int tx, int ty )
 		{
 			for ( int y = 0; y < target.GetLength ( 1 ); ++y )
 			{
@@ -79,7 +163,7 @@ namespace YUVTest
 				}
 			}
 		}
-		private static void CopyFrom ( float [,] target, float [,] from, int tx, int ty )
+		public static void CopyFrom ( float [,] target, float [,] from, int tx, int ty )
 		{
 			for ( int y = 0; y < from.GetLength ( 1 ); ++y )
 			{
@@ -95,14 +179,8 @@ namespace YUVTest
 			}
 		}
 		static Func<int, float> alpha = ( int i ) => i == 0 ? 1 / ( float ) Math.Sqrt ( 2 ) : 1;
-		static float beta = ( 1f / 8 + 1f / 8 );
-		static Func<float, float, float, float, float, float> bf = ( a, u, v, x, y ) =>
-		{
-			float b = ( float ) Math.Cos ( ( ( 2d * x + 1d ) * u * Math.PI ) / 16 );
-			float c = ( float ) Math.Cos ( ( ( 2d * y + 1d ) * v * Math.PI ) / 16 );
-			return a * b * c;
-		};
-		private static void DiscreteCosineTransform ( float [,] dest, float [,] src )
+		static Func<float, float, float, float, float, float> bf = ( a, u, v, x, y ) =>  a * CosineTable [ ( int ) u, ( int ) x ] * CosineTable [ ( int ) v, ( int ) y ];
+		public static void DiscreteCosineTransform ( float [,] dest, float [,] src )
 		{
 			for ( int y = 0; y < 8; ++y )
 			{
@@ -112,11 +190,11 @@ namespace YUVTest
 					for ( int u = 0; u < 8; ++u )
 						for ( int v = 0; v < 8; ++v )
 							dest [ x, y ] += bf ( src [ u, v ], x, y, u, v );
-					dest [ x, y ] *= beta * alpha ( x ) * alpha ( y );
+					dest [ x, y ] *= 0.25f * alpha ( x ) * alpha ( y );
 				}
 			}
 		}
-		private static void InvertedDiscreteCosineTransform ( float [,] dest, float [,] src )
+		public static void InvertedDiscreteCosineTransform ( float [,] dest, float [,] src )
 		{
 			for ( int y = 0; y < 8; ++y )
 			{
@@ -126,27 +204,23 @@ namespace YUVTest
 					for ( int u = 0; u < 8; ++u )
 						for ( int v = 0; v < 8; ++v )
 							dest [ x, y ] += bf ( src [ u, v ], u, v, x, y ) * alpha ( u ) * alpha ( v );
-					dest [ x, y ] *= beta;
+					dest [ x, y ] *= 0.25f;
 				}
 			}
 		}
-		private static float GetQuantizedValue ( float value, float q )
-		{
-			return ( float ) Math.Round ( value / q );
-		}
-		private static void MultiplyScalar ( float [,] dest, float scalar )
+		public static void MultiplyScalar ( float [,] dest, float scalar )
 		{
 			for ( int y = 0; y < 8; ++y )
 				for ( int x = 0; x < 8; ++x )
 					dest [ x, y ] *= scalar;
 		}
-		private static void Divide8x8 ( float [,] dest, float [,] divide )
+		public static void Divide8x8 ( float [,] dest, float [,] divide )
 		{
 			for ( int y = 0; y < 8; ++y )
 				for ( int x = 0; x < 8; ++x )
 					dest [ x, y ] = ( float ) Math.Round ( dest [ x, y ] / divide [ x, y ] );
 		}
-		private static void Multiply8x8 ( float [,] dest, float[,] divide )
+		public static void Multiply8x8 ( float [,] dest, float[,] divide )
 		{
 			for ( int y = 0; y < 8; ++y )
 				for ( int x = 0; x < 8; ++x )
@@ -154,6 +228,61 @@ namespace YUVTest
 		}
 		#endregion
 
+		#region Arrange
+		public static void RGBArrange ( out RGB [,] rgb, float [,] ys, float [,] us, float [,] vs )
+		{
+			rgb = new RGB [ ys.GetLength ( 0 ), ys.GetLength ( 1 ) ];
+			for ( int y = 0; y < ys.GetLength ( 1 ); ++y )
+			{
+				for ( int x = 0; x < ys.GetLength ( 0 ); ++x )
+				{
+					YUV2RGB ( out byte r, out byte g, out byte b,
+						 ( byte ) Math.Max ( Math.Min ( ys [ x, y ], 255 ), 0 ),
+						 ( byte ) Math.Max ( Math.Min ( us [ x, y ], 255 ), 0 ),
+						 ( byte ) Math.Max ( Math.Min ( vs [ x, y ], 255 ), 0 )
+						 );
+					rgb [ x, y ] = new RGB ( r, g, b );
+				}
+			}
+		}
+		public static void YCbCr444Arrange ( out YCbCr444 [,] yuv, float [,] ys, float [,] us, float [,] vs )
+		{
+			yuv = new YCbCr444 [ ys.GetLength ( 0 ), ys.GetLength ( 1 ) ];
+			for ( int y = 0; y < ys.GetLength ( 1 ); ++y )
+				for ( int x = 0; x < ys.GetLength ( 0 ); ++x )
+					yuv [ x, y ] = new YCbCr444 ( ys [ x, y ], us [ x, y ], vs [ x, y ] );
+		}
+		public static void YCbCr422Arrange ( out YCbCr422 [,] yuv, float [,] ys, float [,] us, float [,] vs )
+		{
+			yuv = new YCbCr422 [ ( int ) Math.Ceiling ( ys.GetLength ( 0 ) / 2f ), ys.GetLength ( 1 ) ];
+			for ( int y = 0; y < ys.GetLength ( 1 ); ++y )
+				for ( int x = 0; x < ys.GetLength ( 0 ); x += 2 )
+					yuv [ x / 2, y ] = new YCbCr422 ( ys [ x, y ], us [ x, y ], vs [ x, y ], ( ( x + 1 ) < ys.GetLength ( 0 ) ) ? ys [ x + 1, y ] : 0 );
+		}
+		public static void NV12Arrange ( out byte [,] ya, out CbCr [,] uv, float [,] ys, float [,] us, float [,] vs )
+		{
+			ya = new byte [ ys.GetLength ( 0 ), ys.GetLength ( 1 ) ];
+			uv = new CbCr [ ( int ) Math.Ceiling ( ys.GetLength ( 0 ) / 2f ), ( int ) Math.Ceiling ( ys.GetLength ( 1 ) / 2f ) ];
+			for ( int y = 0; y < ys.GetLength ( 1 ); y += 2 )
+			{
+				for ( int x = 0; x < ys.GetLength ( 0 ); x += 2 )
+				{
+					ya [ x, y ] = ( byte ) Math.Max ( Math.Min ( ys [ x, y ], 255 ), 0 );
+					if ( x + 1 < ys.GetLength ( 0 ) )
+						ya [ x + 1, y ] = ( byte ) Math.Max ( Math.Min ( ys [ x + 1, y ], 255 ), 0 );
+					if ( y + 1 < ys.GetLength ( 1 ) )
+					{
+						ya [ x, y + 1 ] = ( byte ) Math.Max ( Math.Min ( ys [ x, y + 1 ], 255 ), 0 );
+						if ( x + 1 < ys.GetLength ( 0 ) )
+							ya [ x + 1, y + 1 ] = ( byte ) Math.Max ( Math.Min ( ys [ x + 1, y + 1 ], 255 ), 0 );
+					}
+					uv [ x / 2, y / 2 ] = new CbCr ( us [ x, y ], vs [ x, y ] );
+				}
+			}
+		}
+		#endregion
+
+		#region Generate Bitmap
 		public static Bitmap ColorDifference ( Bitmap bitmap1, Bitmap bitmap2 )
 		{
 			var locked1 = bitmap1.LockBits ( new Rectangle ( 0, 0, bitmap1.Width, bitmap1.Height ), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb );
@@ -283,48 +412,24 @@ namespace YUVTest
 			{
 				for ( int x = 0; x < original.Height; x += 8 )
 				{
-					float [,] divide = new float [ 8, 8 ]
-					{
-						{ 16, 11, 10, 16, 24, 40, 51, 61 },
-						{ 12, 12, 14, 19, 26, 58, 60, 55 },
-						{ 14, 13, 16, 24, 40, 57, 69, 56 },
-						{ 14, 17, 22, 29, 51, 87, 80, 62 },
-						{ 18, 22, 37, 56, 68, 109, 103, 77 },
-						{ 24, 35, 55, 64, 81, 104, 113, 92 },
-						{ 49, 64, 78, 87, 103, 121, 120, 101 },
-						{ 72, 92, 95, 98, 112, 100, 103, 99 },
-					};
-
 					CopyTo ( cbuffer, ys, x, y );
 					DiscreteCosineTransform ( qbuffer, cbuffer );
-					Divide8x8 ( qbuffer, divide );
-					Multiply8x8 ( qbuffer, divide );
+					Divide8x8 ( qbuffer, QuantizeTableForY );
+					Multiply8x8 ( qbuffer, QuantizeTableForY );
 					InvertedDiscreteCosineTransform ( cbuffer, qbuffer );
 					CopyFrom ( ys, cbuffer, x, y );
 
-					float [,] divide2 = new float [ 8, 8 ]
-					{
-						{ 17, 18, 24, 47, 99, 99, 99, 99 },
-						{ 18, 21, 26, 66, 99, 99, 99, 99 },
-						{ 24, 26, 56, 99, 99, 99, 99, 99 },
-						{ 47, 66, 99, 99, 99, 99, 99, 99 },
-						{ 99, 99, 99, 99, 99, 99, 99, 99 },
-						{ 99, 99, 99, 99, 99, 99, 99, 99 },
-						{ 99, 99, 99, 99, 99, 99, 99, 99 },
-						{ 99, 99, 99, 99, 99, 99, 99, 99 },
-					};
-
 					CopyTo ( cbuffer, us, x, y );
 					DiscreteCosineTransform ( qbuffer, cbuffer );
-					Divide8x8 ( qbuffer, divide2 );
-					Multiply8x8 ( qbuffer, divide2 );
+					Divide8x8 ( qbuffer, QuantizeTableForCbCr );
+					Multiply8x8 ( qbuffer, QuantizeTableForCbCr );
 					InvertedDiscreteCosineTransform ( cbuffer, qbuffer );
 					CopyFrom ( us, cbuffer, x, y );
 
 					CopyTo ( cbuffer, vs, x, y );
 					DiscreteCosineTransform ( qbuffer, cbuffer );
-					Divide8x8 ( qbuffer, divide2 );
-					Multiply8x8 ( qbuffer, divide2 );
+					Divide8x8 ( qbuffer, QuantizeTableForCbCr );
+					Multiply8x8 ( qbuffer, QuantizeTableForCbCr );
 					InvertedDiscreteCosineTransform ( cbuffer, qbuffer );
 					CopyFrom ( vs, cbuffer, x, y );
 				}
@@ -344,5 +449,117 @@ namespace YUVTest
 			ret.UnlockBits ( locked );
 			return ret;
 		}
+		#endregion
+
+		#region Calculate CompressionRate
+		public static void CalculateCompressionRGB ( out int original, out int deflated, RGB [,] rgb )
+		{
+			unsafe
+			{
+				original = sizeof ( RGB ) * rgb.GetLength ( 0 ) * rgb.GetLength ( 1 );
+			}
+			using ( MemoryStream memStream = new MemoryStream () )
+			{
+				using ( DeflateStream stream = new DeflateStream ( memStream, CompressionLevel.Optimal, true ) )
+				{
+					byte [] rgbArr = new byte [ 3 ];
+					for ( int y = 0; y < rgb.GetLength ( 1 ); ++y )
+					{
+						for ( int x = 0; x < rgb.GetLength ( 0 ); ++x )
+						{
+							rgbArr [ 0 ] = rgb [ x, y ].R;
+							rgbArr [ 1 ] = rgb [ x, y ].G;
+							rgbArr [ 2 ] = rgb [ x, y ].B;
+							stream.Write ( rgbArr, 0, 3 );
+						}
+					}
+				}
+				deflated = ( int ) memStream.Length;
+			}
+		}
+		public static void CalculateCompressionYUV ( out int original, out int deflated, YCbCr444 [,] yuv )
+		{
+			unsafe
+			{
+				original = sizeof ( YCbCr444 ) * yuv.GetLength ( 0 ) * yuv.GetLength ( 1 );
+			}
+			using ( MemoryStream memStream = new MemoryStream () )
+			{
+				using ( DeflateStream stream = new DeflateStream ( memStream, CompressionLevel.Optimal, true ) )
+				{
+					byte [] yuvArr = new byte [ 3 ];
+					for ( int y = 0; y < yuv.GetLength ( 1 ); ++y )
+					{
+						for ( int x = 0; x < yuv.GetLength ( 0 ); ++x )
+						{
+							yuvArr [ 0 ] = yuv [ x, y ].Y;
+							yuvArr [ 1 ] = yuv [ x, y ].Cb;
+							yuvArr [ 2 ] = yuv [ x, y ].Cr;
+							stream.Write ( yuvArr, 0, 3 );
+						}
+					}
+				}
+				deflated = ( int ) memStream.Length;
+			}
+		}
+		public static void CalculateCompressionYUV ( out int original, out int deflated, YCbCr422 [,] yuv )
+		{
+			unsafe
+			{
+				original = sizeof ( YCbCr422 ) * yuv.GetLength ( 0 ) * yuv.GetLength ( 1 );
+			}
+			using ( MemoryStream memStream = new MemoryStream () )
+			{
+				using ( DeflateStream stream = new DeflateStream ( memStream, CompressionLevel.Optimal, true ) )
+				{
+					byte [] yuvArr = new byte [ 4 ];
+					for ( int y = 0; y < yuv.GetLength ( 1 ); ++y )
+					{
+						for ( int x = 0; x < yuv.GetLength ( 0 ); ++x )
+						{
+							yuvArr [ 0 ] = yuv [ x, y ].Y;
+							yuvArr [ 1 ] = yuv [ x, y ].Cb;
+							yuvArr [ 2 ] = yuv [ x, y ].Cr;
+							yuvArr [ 3 ] = yuv [ x, y ].Y2;
+							stream.Write ( yuvArr, 0, 4 );
+						}
+					}
+				}
+				deflated = ( int ) memStream.Length;
+			}
+		}
+		public static void CalculateCompressionNV12 ( out int original, out int deflated, byte [,] ya, CbCr [,] uv )
+		{
+			unsafe
+			{
+				original = ( ya.GetLength ( 0 ) * ya.GetLength ( 1 ) ) +
+					( sizeof ( CbCr ) * uv.GetLength ( 0 ) * uv.GetLength ( 1 ) );
+			}
+			using ( MemoryStream memStream = new MemoryStream () )
+			{
+				using ( DeflateStream stream = new DeflateStream ( memStream, CompressionLevel.Optimal, true ) )
+				{
+					for ( int y = 0; y < ya.GetLength ( 1 ); ++y )
+					{
+						for ( int x = 0; x < ya.GetLength ( 0 ); ++x )
+						{
+							stream.WriteByte ( ya [ x, y ] );
+						}
+					}
+					byte [] uvArr = new byte [ 4 ];
+					for ( int y = 0; y < uv.GetLength ( 1 ); ++y )
+					{
+						for ( int x = 0; x < uv.GetLength ( 0 ); ++x )
+						{
+							uvArr [ 0 ] = uv [ x, y ].Cb;
+							uvArr [ 1 ] = uv [ x, y ].Cr;
+							stream.Write ( uvArr, 0, 2 );
+						}
+					}
+				}
+				deflated = ( int ) memStream.Length;
+			}
+		}
+		#endregion
 	}
 }
