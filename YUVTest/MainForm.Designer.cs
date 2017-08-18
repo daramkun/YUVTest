@@ -154,6 +154,7 @@
 			this.dCT양자화크기계산QToolStripMenuItem.Name = "dCT양자화크기계산QToolStripMenuItem";
 			this.dCT양자화크기계산QToolStripMenuItem.Size = new System.Drawing.Size(297, 22);
 			this.dCT양자화크기계산QToolStripMenuItem.Text = "DCT 양자화 크기 계산(Q)";
+			this.dCT양자화크기계산QToolStripMenuItem.Click += new System.EventHandler(this.DCT양자화크기계산QToolStripMenuItem_Click);
 			// 
 			// MainForm
 			// 

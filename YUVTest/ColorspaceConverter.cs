@@ -67,6 +67,50 @@ namespace YUVTest
 		}
 	}
 
+	class ZigzagScanner
+	{
+		List<byte> list = new List<byte> ( 64 );
+		Point [] zigzagPosition = new Point [ 64 ]
+		{
+			new Point ( 0, 0 ), new Point ( 1, 0 ), new Point ( 0, 1 ), new Point ( 0, 2 ),
+			new Point ( 1, 1 ), new Point ( 2, 0 ), new Point ( 3, 0 ), new Point ( 2, 1 ), new Point ( 1, 2 ), new Point ( 0, 3 ), new Point ( 0, 4 ), new Point ( 1, 3 ),
+			new Point ( 2, 2 ), new Point ( 3, 1 ), new Point ( 4, 0 ), new Point ( 5, 0 ), new Point ( 4, 1 ), new Point ( 3, 2 ), new Point ( 2, 3 ), new Point ( 1, 4 ), new Point ( 0, 5 ), new Point ( 0, 6 ), new Point ( 1, 5 ), new Point ( 2, 4 ),
+			new Point ( 3, 3 ), new Point ( 4, 2 ), new Point ( 5, 1 ), new Point ( 6, 0 ), new Point ( 7, 0 ), new Point ( 6, 1 ), new Point ( 5, 2 ), new Point ( 4, 3 ), new Point ( 3, 4 ), new Point ( 2, 5 ), new Point ( 1, 6 ), new Point ( 0, 7 ), new Point ( 1, 7 ), new Point ( 2, 6 ), new Point ( 3, 5 ),
+			new Point ( 4, 4 ), new Point ( 5, 3 ), new Point ( 6, 2 ), new Point ( 7, 1 ), new Point ( 7, 2 ), new Point ( 6, 3 ), new Point ( 5, 4 ), new Point ( 4, 5 ), new Point ( 3, 6 ), new Point ( 2, 7 ), new Point ( 3, 7 ), new Point ( 4, 6 ),
+			new Point ( 5, 5 ), new Point ( 6, 4 ), new Point ( 7, 3 ), new Point ( 7, 4 ), new Point ( 6, 5 ), new Point ( 5, 6 ), new Point ( 4, 7 ), new Point ( 5, 7 ),
+			new Point ( 6, 6 ), new Point ( 7, 5 ), new Point ( 7, 6 ), new Point ( 6, 7 ),
+			new Point ( 7, 7 )
+		};
+
+		public byte [] ZigzagScanning ( byte [,] arr )
+		{
+			list.Clear ();
+
+			foreach ( Point p in zigzagPosition )
+			{
+				byte t = arr [ p.X, p.Y ];
+				list.Add ( t );
+				//if ( t == 0 ) break;
+			}
+
+			int index;
+			while ( ( index = list.LastIndexOf ( 0 ) ) != -1 )
+				if ( index == list.Count - 1 )
+					list.RemoveAt ( index );
+				else break;
+
+			return list.ToArray ();
+		}
+
+		public byte [,] ZigzagRestore ( byte [] arr )
+		{
+			byte [,] ret = new byte [ 8, 8 ];
+			for ( int i = 0; i < arr.Length; ++i )
+				ret [ zigzagPosition [ i ].X, zigzagPosition [ i ].Y ] = arr [ i ];
+			return ret;
+		}
+	}
+
 	public static class ColorspaceConverter
 	{
 		#region Utilities
@@ -79,15 +123,15 @@ namespace YUVTest
 			{ 18, 22, 37, 56, 68, 109, 103, 77 },
 			{ 24, 35, 55, 64, 81, 104, 113, 92 },
 			{ 49, 64, 78, 87, 103, 121, 120, 101 },
-			{ 72, 92, 95, 98, 112, 100, 103, 99 },*/
-			{ 1, 1, 1, 1, 2, 3, 4, 5 },
+			{ 72, 92, 95, 98, 112, 100, 103, 99 },/**/
+			/**/{ 1, 1, 1, 1, 2, 3, 4, 5 },
 			{ 1, 1, 1, 2, 2, 5, 5, 4 },
 			{ 1, 1, 1, 2, 3, 5, 6, 4 },
 			{ 1, 1, 2, 2, 4, 7, 6, 5 },
 			{ 1, 2, 3, 4, 5, 9, 8, 6 },
 			{ 2, 3, 4, 5, 6, 8, 9, 7 },
 			{ 4, 5, 6, 7, 8, 10, 10, 8 },
-			{ 6, 7, 8, 8, 9, 8, 8, 8 },
+			{ 6, 7, 8, 8, 9, 8, 8, 8 },/**/
 		};
 		public static readonly float [,] QuantizeTableForCbCr = new float [ 8, 8 ]
 		{
@@ -98,17 +142,17 @@ namespace YUVTest
 			{ 99, 99, 99, 99, 99, 99, 99, 99 },
 			{ 99, 99, 99, 99, 99, 99, 99, 99 },
 			{ 99, 99, 99, 99, 99, 99, 99, 99 },
-			{ 99, 99, 99, 99, 99, 99, 99, 99 },*/
-			{ 1, 1, 2, 4, 8, 8, 8, 8 },
+			{ 99, 99, 99, 99, 99, 99, 99, 99 },/**/
+			/**/{ 1, 1, 2, 4, 8, 8, 8, 8 },
 			{ 1, 2, 2, 5, 8, 8, 8, 8 },
 			{ 2, 2, 4, 8, 8, 8, 8, 8 },
 			{ 4, 5, 8, 8, 8, 8, 8, 8 },
 			{ 8, 8, 8, 8, 8, 8, 8, 8 },
 			{ 8, 8, 8, 8, 8, 8, 8, 8 },
 			{ 8, 8, 8, 8, 8, 8, 8, 8 },
-			{ 8, 8, 8, 8, 8, 8, 8, 8 },
+			{ 8, 8, 8, 8, 8, 8, 8, 8 },/**/
 		};
-
+		private static readonly ZigzagScanner zigzag = new ZigzagScanner ();
 		private static readonly float [,] CosineTable = new float [ 8, 8 ];
 		static ColorspaceConverter ()
 		{
@@ -116,9 +160,6 @@ namespace YUVTest
 			for ( int y = 0; y < 8; ++y )
 				for ( int x = 0; x < 8; ++x )
 					CosineTable [ x, y ] = ( float ) Math.Cos ( Math.PI * x * ( 2.0 * y + 1 ) * inv16 );
-
-			//MultiplyScalar ( QuantizeTableForY, 0.25f );
-			//MultiplyScalar ( QuantizeTableForCbCr, 0.25f );
 		}
 		public static void RGB2YUV ( out byte y, out byte u, out byte v, byte r, byte g, byte b )
 		{
@@ -241,6 +282,12 @@ namespace YUVTest
 			for ( int y = 0; y < 8; ++y )
 				for ( int x = 0; x < 8; ++x )
 					dest [ x, y ] *= divide [ x, y ];
+		}
+		public static void FloatingPointToByte ( byte[,] target, float [,] arr )
+		{
+			for ( int y = 0; y < 8; ++y )
+				for ( int x = 0; x < 8; ++x )
+					target [ x, y ] = ( byte ) Math.Round ( arr [ x, y ] );
 		}
 		#endregion
 
@@ -574,6 +621,51 @@ namespace YUVTest
 					}
 				}
 				deflated = ( int ) memStream.Length;
+			}
+		}
+		public static void CalculateCompressionYUV ( out int original, out int dctQuantize, out int dctQuantizeDeflated, float [,] ys, float [,] us, float [,] vs )
+		{
+			original = ys.GetLength ( 0 ) * ys.GetLength ( 1 ) * 3;
+			dctQuantize = 0;
+
+			using ( MemoryStream memStream = new MemoryStream () )
+			{
+				using ( DeflateStream stream = new DeflateStream ( memStream, CompressionLevel.Optimal, true ) )
+				{
+					float [,] qbuffer = new float [ 8, 8 ], cbuffer = new float [ 8, 8 ];
+					byte [,] arr = new byte [ 8, 8 ];
+
+					for ( int y = 0; y < ys.GetLength ( 1 ); y += 8 )
+					{
+						for ( int x = 0; x < ys.GetLength ( 0 ); x += 8 )
+						{
+							CopyTo ( cbuffer, ys, x, y );
+							DiscreteCosineTransform ( qbuffer, cbuffer );
+							Divide8x8 ( qbuffer, QuantizeTableForY );
+							FloatingPointToByte ( arr, qbuffer );
+							byte [] zigzaged = zigzag.ZigzagScanning ( arr );
+							stream.Write ( zigzaged, 0, zigzaged.Length );
+							dctQuantize += zigzaged.Length;
+
+							CopyTo ( cbuffer, us, x, y );
+							DiscreteCosineTransform ( qbuffer, cbuffer );
+							Divide8x8 ( qbuffer, QuantizeTableForCbCr );
+							FloatingPointToByte ( arr, qbuffer );
+							zigzaged = zigzag.ZigzagScanning ( arr );
+							stream.Write ( zigzaged, 0, zigzaged.Length );
+							dctQuantize += zigzaged.Length;
+
+							CopyTo ( cbuffer, vs, x, y );
+							DiscreteCosineTransform ( qbuffer, cbuffer );
+							Divide8x8 ( qbuffer, QuantizeTableForCbCr );
+							FloatingPointToByte ( arr, qbuffer );
+							zigzaged = zigzag.ZigzagScanning ( arr );
+							stream.Write ( zigzaged, 0, zigzaged.Length );
+							dctQuantize += zigzaged.Length;
+						}
+					}
+				}
+				dctQuantizeDeflated = ( int ) memStream.Length;
 			}
 		}
 		#endregion

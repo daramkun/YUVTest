@@ -42,6 +42,15 @@ YCbCr422: {ycbcr422}, YCbCr422 Deflated: {ycbcr422d}
 NV12: {nv12}, NV12 Deflated: {nv12d}" );
 		}
 
+		private void DCT양자화크기계산QToolStripMenuItem_Click ( object sender, EventArgs e )
+		{
+			ColorspaceConverter.GetColours ( out float [,] ys, out float [,] us, out float [,] vs, original );
+			ColorspaceConverter.CalculateCompressionYUV ( out int yuv, out int dctq, out int dctqd, ys, us, vs );
+			MessageBox.Show ( $@"YCbCr444: {yuv}
+YCbCr444 DCT Quantization: {dctq}
+YCbCr444 DCT Quantization Deflate: {dctqd}" );
+		}
+
 		private void PictureBox1_Click ( object sender, EventArgs e )
 		{
 			if ( pictureBox1.Image != original )
