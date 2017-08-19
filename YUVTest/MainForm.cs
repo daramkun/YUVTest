@@ -110,7 +110,7 @@ YCbCr444 DCT Quantization Deflate: {dctqd}" );
 		{
 			InitializeComponent ();
 
-			original = new Bitmap ( Resources.lenna1 );
+			original = new Bitmap ( Resources._749px_Vector_Video_Standards2_svg );
 			yuv444 = ColorspaceConverter.ConvertToYUV444 ( original );
 			yuv422 = ColorspaceConverter.ConvertToYUV422 ( original );
 			nv12 = ColorspaceConverter.ConvertToNV12 ( original );

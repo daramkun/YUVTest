@@ -69,7 +69,7 @@ namespace YUVTest
 
 	class ZigzagScanner
 	{
-		List<byte> list = new List<byte> ( 64 );
+		List<short> list = new List<short> ( 64 );
 		Point [] zigzagPosition = new Point [ 64 ]
 		{
 			new Point ( 0, 0 ), new Point ( 1, 0 ), new Point ( 0, 1 ), new Point ( 0, 2 ),
@@ -82,32 +82,38 @@ namespace YUVTest
 			new Point ( 7, 7 )
 		};
 
-		public byte [] ZigzagScanning ( byte [,] arr )
+		public short [] ZigzagScanning ( short [,] arr )
 		{
 			list.Clear ();
 
 			foreach ( Point p in zigzagPosition )
-			{
-				byte t = arr [ p.X, p.Y ];
-				list.Add ( t );
-				//if ( t == 0 ) break;
-			}
+				list.Add ( arr [ p.X, p.Y ] );
 
-			int index;
+			/**/int index;
 			while ( ( index = list.LastIndexOf ( 0 ) ) != -1 )
 				if ( index == list.Count - 1 )
 					list.RemoveAt ( index );
-				else break;
+				else break;/**/
+
+			/*for ( int i = 0; i < list.Count; ++i )
+				if ( list [ i ] == 0 )
+					list [ i ] = 1;*/
 
 			return list.ToArray ();
 		}
 
-		public byte [,] ZigzagRestore ( byte [] arr )
+		public short [,] ZigzagRestore ( short [] arr )
 		{
-			byte [,] ret = new byte [ 8, 8 ];
+			short [,] ret = new short [ 8, 8 ];
 			for ( int i = 0; i < arr.Length; ++i )
 				ret [ zigzagPosition [ i ].X, zigzagPosition [ i ].Y ] = arr [ i ];
 			return ret;
+		}
+
+		public void ZigzagRestore ( short [,] target, short [] arr )
+		{
+			for ( int i = 0; i < arr.Length; ++i )
+				target [ zigzagPosition [ i ].X, zigzagPosition [ i ].Y ] = arr [ i ];
 		}
 	}
 
@@ -283,11 +289,17 @@ namespace YUVTest
 				for ( int x = 0; x < 8; ++x )
 					dest [ x, y ] *= divide [ x, y ];
 		}
-		public static void FloatingPointToByte ( byte[,] target, float [,] arr )
+		public static void FloatingPointToShort ( short [,] target, float [,] arr )
 		{
 			for ( int y = 0; y < 8; ++y )
 				for ( int x = 0; x < 8; ++x )
-					target [ x, y ] = ( byte ) Math.Round ( arr [ x, y ] );
+					target [ x, y ] = ( short ) Math.Round ( arr [ x, y ] );
+		}
+		public static void ShortToFloatingPoint ( float [,] target, short [,] arr )
+		{
+			for ( int y = 0; y < 8; ++y )
+				for ( int x = 0; x < 8; ++x )
+					target [ x, y ] = arr [ x, y ];
 		}
 		#endregion
 
@@ -401,17 +413,25 @@ namespace YUVTest
 			{
 				for ( int x = 0; x < original.Width; x += 2 )
 				{
-					byte u = ( byte ) us [ x, y ];
-					byte v = ( byte ) vs [ x, y ];
+					int u = ( int ) us [ x, y ];
+					int v = ( int ) vs [ x, y ];
+					if ( x + 1 < original.Width )
+					{
+						u += ( int ) us [ x + 1, y ];
+						v += ( int ) vs [ x + 1, y ];
+
+						u /= 2;
+						v /= 2;
+					}
 
 					int offset = ( y * original.Width * 4 ) + ( x * 4 );
 					byte y1 = ( byte ) ys [ x, y ];
-					YUV2RGB ( out byte r1, out byte g1, out byte b1, y1, u, v );
+					YUV2RGB ( out byte r1, out byte g1, out byte b1, y1, ( byte ) u, ( byte ) v );
 					WritePixels ( locked.Scan0, offset, r1, g1, b1 );
 					if ( x + 1 < original.Width )
 					{
 						byte y2 = ( byte ) ys [ x + 1, y ];
-						YUV2RGB ( out byte r2, out byte g2, out byte b2, y2, u, v );
+						YUV2RGB ( out byte r2, out byte g2, out byte b2, y2, ( byte ) u, ( byte ) v );
 						WritePixels ( locked.Scan0, offset + 4, r2, g2, b2 );
 					}
 				}
@@ -430,17 +450,38 @@ namespace YUVTest
 			{
 				for ( int x = 0; x < original.Width; x += 2 )
 				{
-					byte u = ( byte ) us [ x, y ];
-					byte v = ( byte ) vs [ x, y ];
+					int u = ( int ) us [ x, y ];
+					int v = ( int ) vs [ x, y ];
+					int colorCount = 1;
+					if ( x + 1 < original.Width )
+					{
+						u += ( int ) us [ x + 1, y ];
+						v += ( int ) vs [ x + 1, y ];
+						++colorCount;
+					}
+					if ( y + 1 < original.Height )
+					{
+						u += ( int ) us [ x, y + 1 ];
+						v += ( int ) vs [ x, y + 1 ];
+						++colorCount;
+						if ( x + 1 < original.Width )
+						{
+							u += ( int ) us [ x + 1, y + 1 ];
+							v += ( int ) vs [ x + 1, y + 1 ];
+							++colorCount;
+						}
+					}
+					u /= colorCount;
+					v /= colorCount;
 
 					byte y1 = ( byte ) ys [ x, y ];
 					int offset1 = ( y * original.Width * 4 ) + ( x * 4 );
-					YUV2RGB ( out byte r1, out byte g1, out byte b1, y1, u, v );
+					YUV2RGB ( out byte r1, out byte g1, out byte b1, y1, ( byte ) u, ( byte ) v );
 					WritePixels ( locked.Scan0, offset1, r1, g1, b1 );
 					if ( x + 1 < original.Width )
 					{
 						byte y2 = ( byte ) ys [ x + 1, y ];
-						YUV2RGB ( out byte r2, out byte g2, out byte b2, y2, u, v );
+						YUV2RGB ( out byte r2, out byte g2, out byte b2, y2, ( byte ) u, ( byte ) v );
 						WritePixels ( locked.Scan0, offset1 + 4, r2, g2, b2 );
 					}
 
@@ -448,12 +489,12 @@ namespace YUVTest
 					{
 						byte y3 = ( byte ) ys [ x, y + 1 ];
 						int offset2 = ( ( y + 1 ) * original.Width * 4 ) + ( x * 4 );
-						YUV2RGB ( out byte r3, out byte g3, out byte b3, y3, u, v );
+						YUV2RGB ( out byte r3, out byte g3, out byte b3, y3, ( byte ) u, ( byte ) v );
 						WritePixels ( locked.Scan0, offset2, r3, g3, b3 );
 						if ( x + 1 < original.Width )
 						{
 							byte y4 = ( byte ) ys [ x + 1, y + 1 ];
-							YUV2RGB ( out byte r4, out byte g4, out byte b4, y4, u, v );
+							YUV2RGB ( out byte r4, out byte g4, out byte b4, y4, ( byte ) u, ( byte ) v );
 							WritePixels ( locked.Scan0, offset2 + 4, r4, g4, b4 );
 						}
 					}
@@ -470,6 +511,7 @@ namespace YUVTest
 			float [,] qbuffer, cbuffer;
 			qbuffer = new float [ 8, 8 ];
 			cbuffer = new float [ 8, 8 ];
+			short [,] bbuffer = new short [ 8, 8 ];
 
 			for ( int y = 0; y < original.Height; y += 8 )
 			{
@@ -478,6 +520,10 @@ namespace YUVTest
 					CopyTo ( cbuffer, ys, x, y );
 					DiscreteCosineTransform ( qbuffer, cbuffer );
 					Divide8x8 ( qbuffer, QuantizeTableForY );
+					FloatingPointToShort ( bbuffer, qbuffer );
+					var yz = zigzag.ZigzagScanning ( bbuffer );
+					zigzag.ZigzagRestore ( bbuffer, yz );
+					ShortToFloatingPoint ( qbuffer, bbuffer );
 					Multiply8x8 ( qbuffer, QuantizeTableForY );
 					InvertedDiscreteCosineTransform ( cbuffer, qbuffer );
 					CopyFrom ( ys, cbuffer, x, y );
@@ -485,6 +531,10 @@ namespace YUVTest
 					CopyTo ( cbuffer, us, x, y );
 					DiscreteCosineTransform ( qbuffer, cbuffer );
 					Divide8x8 ( qbuffer, QuantizeTableForCbCr );
+					FloatingPointToShort ( bbuffer, qbuffer );
+					var uz = zigzag.ZigzagScanning ( bbuffer );
+					zigzag.ZigzagRestore ( bbuffer, uz );
+					ShortToFloatingPoint ( qbuffer, bbuffer );
 					Multiply8x8 ( qbuffer, QuantizeTableForCbCr );
 					InvertedDiscreteCosineTransform ( cbuffer, qbuffer );
 					CopyFrom ( us, cbuffer, x, y );
@@ -492,6 +542,10 @@ namespace YUVTest
 					CopyTo ( cbuffer, vs, x, y );
 					DiscreteCosineTransform ( qbuffer, cbuffer );
 					Divide8x8 ( qbuffer, QuantizeTableForCbCr );
+					FloatingPointToShort ( bbuffer, qbuffer );
+					var vz = zigzag.ZigzagScanning ( bbuffer );
+					zigzag.ZigzagRestore ( bbuffer, vz );
+					ShortToFloatingPoint ( qbuffer, bbuffer );
 					Multiply8x8 ( qbuffer, QuantizeTableForCbCr );
 					InvertedDiscreteCosineTransform ( cbuffer, qbuffer );
 					CopyFrom ( vs, cbuffer, x, y );
@@ -632,36 +686,42 @@ namespace YUVTest
 			{
 				using ( DeflateStream stream = new DeflateStream ( memStream, CompressionLevel.Optimal, true ) )
 				{
-					float [,] qbuffer = new float [ 8, 8 ], cbuffer = new float [ 8, 8 ];
-					byte [,] arr = new byte [ 8, 8 ];
-
-					for ( int y = 0; y < ys.GetLength ( 1 ); y += 8 )
+					using ( BinaryWriter writer = new BinaryWriter ( stream, Encoding.UTF8, true ) )
 					{
-						for ( int x = 0; x < ys.GetLength ( 0 ); x += 8 )
+						float [,] qbuffer = new float [ 8, 8 ], cbuffer = new float [ 8, 8 ];
+						short [,] arr = new short [ 8, 8 ];
+
+						for ( int y = 0; y < ys.GetLength ( 1 ); y += 8 )
 						{
-							CopyTo ( cbuffer, ys, x, y );
-							DiscreteCosineTransform ( qbuffer, cbuffer );
-							Divide8x8 ( qbuffer, QuantizeTableForY );
-							FloatingPointToByte ( arr, qbuffer );
-							byte [] zigzaged = zigzag.ZigzagScanning ( arr );
-							stream.Write ( zigzaged, 0, zigzaged.Length );
-							dctQuantize += zigzaged.Length;
+							for ( int x = 0; x < ys.GetLength ( 0 ); x += 8 )
+							{
+								CopyTo ( cbuffer, ys, x, y );
+								DiscreteCosineTransform ( qbuffer, cbuffer );
+								Divide8x8 ( qbuffer, QuantizeTableForY );
+								FloatingPointToShort ( arr, qbuffer );
+								short [] zigzaged = zigzag.ZigzagScanning ( arr );
+								foreach ( var v in zigzaged )
+									writer.Write ( v );
+								dctQuantize += zigzaged.Length * sizeof ( short );
 
-							CopyTo ( cbuffer, us, x, y );
-							DiscreteCosineTransform ( qbuffer, cbuffer );
-							Divide8x8 ( qbuffer, QuantizeTableForCbCr );
-							FloatingPointToByte ( arr, qbuffer );
-							zigzaged = zigzag.ZigzagScanning ( arr );
-							stream.Write ( zigzaged, 0, zigzaged.Length );
-							dctQuantize += zigzaged.Length;
+								CopyTo ( cbuffer, us, x, y );
+								DiscreteCosineTransform ( qbuffer, cbuffer );
+								Divide8x8 ( qbuffer, QuantizeTableForCbCr );
+								FloatingPointToShort ( arr, qbuffer );
+								zigzaged = zigzag.ZigzagScanning ( arr );
+								foreach ( var v in zigzaged )
+									writer.Write ( v );
+								dctQuantize += zigzaged.Length * sizeof ( short );
 
-							CopyTo ( cbuffer, vs, x, y );
-							DiscreteCosineTransform ( qbuffer, cbuffer );
-							Divide8x8 ( qbuffer, QuantizeTableForCbCr );
-							FloatingPointToByte ( arr, qbuffer );
-							zigzaged = zigzag.ZigzagScanning ( arr );
-							stream.Write ( zigzaged, 0, zigzaged.Length );
-							dctQuantize += zigzaged.Length;
+								CopyTo ( cbuffer, vs, x, y );
+								DiscreteCosineTransform ( qbuffer, cbuffer );
+								Divide8x8 ( qbuffer, QuantizeTableForCbCr );
+								FloatingPointToShort ( arr, qbuffer );
+								zigzaged = zigzag.ZigzagScanning ( arr );
+								foreach ( var v in zigzaged )
+									writer.Write ( v );
+								dctQuantize += zigzaged.Length * sizeof ( short );
+							}
 						}
 					}
 				}
